@@ -1,0 +1,525 @@
+---
+title: "CPSC541_BYOD_Project"
+author: "Yuting_Qiu"
+date: "9/19/2019"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+read in the data and basic processing
+```{r}
+data1 <-read.csv("Moatt et al Data_S1.csv",h=T)
+data2 <- data1[data1$Include == "y",] #only inlude =y
+data2$Diet <- as.factor(data2$Diet)
+data3 <- data2[-which(is.na(data2$Pprotein )),] # remove the nas
+```
+
+
+```{r}
+str(data3)
+```
+
+```{r}
+data4 <- data3[,c(4,5,6,7,8,9,12,13,16,17,19,21,25)] # the possible columns that we are interested in
+pairs(data4) # making scatterplot matrices of the data 
+```
+
+```{r}
+# fit some basic model to see the results
+# effect on lipid intake on body protein:lipid intake
+
+M_lipid <- lm(P_F ~ L, data4)
+M_protein <- lm(P_F ~ P, data4)
+M_PLratio <- lm(P_F ~ P_L, data4)
+
+
+plot(data4$L, data4$P_F)
+lines(data4$L, predict(M_lipid),col="red")
+
+plot(data4$P, data4$P_F)
+lines(data4$P, predict(M_protein),col="red")
+
+plot(data4$P_L, data4$P_F)
+lines(data4$P_L, predict(M_PLratio), col="red")
+
+summary(M_lipid)
+summary(M_protein)
+summary(M_PLratio)
+
+
+```
+
+evaluate the diet on body composion 
+```{r}
+data3$P <- as.numeric(as.character(data3$P))
+data3$L <- as.numeric(as.character(data3$L))
+data3$E <- as.numeric(as.character(data3$E))
+data3$P_F <- as.numeric(as.character(data3$P_F))
+
+m.diet1 <- lm(P_F ~ Diet, data = data3)
+m.diet2 <- lm(P_F ~ P + L + E + P_L, data = data3)
+m.diet3 <- lm(P_F ~  P_L, data = data3)
+m.diet4 <- lm(P_F ~  P_L + L, data = data3)
+m.diet5 <- lm(P_F ~  P_L + P, data = data3)
+m.diet6 <- lm(P_F ~  P_L + P + L, data = data3)
+m.diet7 <- lm(P_F ~  Diet + Sex, data = data3)
+m.diet8 <- lm(P_F ~  Diet + Sex + Tank, data = data3)
+m.diet9 <- lm(P_F ~  Diet + Tank, data = data3)
+m.diet9 <- lm(P_F ~  E, data = data3)
+m.diet10 <- lm(P_F ~  E + P_L, data = data3)
+m.diet11 <- lm(E ~  P_L, data = data3)
+m.diet12 <- lm(P_F ~  L, data = data3)
+m.diet13 <- lm(P_F ~  P, data = data3)
+
+
+anova(m.diet1)
+anova(m.diet2)
+anova(m.diet3)
+anova(m.diet4)
+anova(m.diet5)
+anova(m.diet6)
+anova(m.diet9)
+anova(m.diet10)
+anova(m.diet11)
+
+summary(m.diet1)
+summary(m.diet2)
+summary(m.diet3)
+summary(m.diet4)
+summary(m.diet5)
+summary(m.diet6)
+summary(m.diet7) # Adjusted R-squared:  0.3428 
+summary(m.diet9)
+summary(m.diet11)
+summary(m.diet12)
+summary(m.diet13)
+summary(lm(E~L, data = data3)) # Adjusted R-squared:  0.9465 
+summary(lm(P_F~L, data = data3)) # Adjusted R-squared:  0.3293
+summary(lm(P_F~P, data = data3)) # Adjusted R-squared:  -0.007666 
+summary(lm(P_F~E, data = data3)) # Adjusted R-squared:  0.3377 
+summary(lm(P_F~P_L, data = data3)) # Adjusted R-squared:  0.2577 
+
+
+
+anova(m.diet3, m.diet4)
+anova(m.diet3, m.diet4)
+anova(m.diet3, m.diet6) # it is important both P and L amonunt in the diet and the P_L ratio
+anova(m.diet1, m.diet7) # beside diet, sex is also an important facotor
+anova(m.diet7, m.diet8) # tank is not signigficant with sex and diet
+anova(m.diet1, m.diet9) # tank is not signficant
+
+# test for collinearity in the P, L and P_L
+summary(lm(P_F ~ P + L + P_L, data = data3))
+summary(lm(P_F ~  L + P_L + P, data = data3))
+summary(lm(P_F ~ P_L + P + L , data = data3))
+```
+
+
+
+# re-fit, try poisson errors
+```{r}
+m_lipid.2 <- glm(P_F ~ L, data = data4, family = poisson(link = identity)) # non-interger, cannot run poission
+```
+
+# try poly-nominal
+```{r}
+m_lipid.3 <- lm(P_F ~ poly(L,2), data4)
+plot(data4$L, data4$P_F, xlab = "lipid content in the diet", ylab = "Protein: fat ratio in the fish body", main = "Polynomial model")
+lines(data4$L, predict(m_lipid.3),col="red")
+summary(m_lipid.3)
+
+m_lipid.4 <- lm(P_F ~ poly(L,3), data4)
+plot(data4$L, data4$P_F, xlab = "lipid content in the diet", ylab = "Protein: fat ratio in the fish body", main = "Polynomial model")
+lines(data4$L, predict(m_lipid.4),col="red")
+summary(m_lipid.4)
+
+anova(m_lipid.3, m_lipid.4)
+# not significant, p is large, complicate model is not necessary better than the simple model
+anova(m_lipid.3, M_lipid)
+# not signifciant, a simple model is good enough
+# but we can still see the influence of lipid intake on the protein_ratio for the fish. more lipid intake, less protein:fat ratio, not much influence for the protein
+```
+
+# look at the body componient 
+```{r}
+data5 <- data3[,12:25]
+str(data5)
+
+pairs(data5)
+
+
+```
+
+
+```{r}
+# what can explain protein:fat ration in the sample
+# fat percentage first, looks like ploy normal
+
+library(ggplot2)
+p1 = ggplot(data5, aes(x=Pfat, y=P_F))
+p1 = p1 + geom_point() + ylab("protein:fat ratio in the sample") +
+  xlab("percentage of fat in the sample")
+p1
+```
+
+```{r}
+# fit polynomial to the P:L sample and 
+fit1 <- lm(P_F~poly(Pfat,2), data5)
+plot(fit1)
+summary(fit1)
+```
+
+CHECK FOR OUTLIERS
+```{r}
+influence.measures(fit1)
+```
+
+
+```{r}
+plot(data5$Pfat, data5$P_F, xlab = "percentage of fat in the sample", ylab = "protein: fat ratio in fish body", main = "Fit with polynomial distribution")
+lines(data5$Pfat, predict(fit1), col="red")
+```
+
+since tank is a significant factor, we need to regress it out
+```{r}
+model_tank <- lm(data3$P_F ~ data3$Tank)
+anova(model_tank)
+tank_resid = residuals(model_tank)
+data3$tank_resid<- tank_resid
+plot(model_tank)
+
+```
+
+
+
+
+```{r}
+# fit the exponential model to the data
+fit_exp <- glm(P_F ~ Pfat, data = data5, family = gaussian(link=log))
+plot(fit_exp)
+
+# check residuals
+# res_exp <- residuals(fit_exp)/sqrt(summary(fit_exp)$dispersion) 
+
+# ggplot(res_exp, aes(x=predict(fit_exp), y=res_exp)) + geom_point()
+```
+
+
+ ############################### 
+ after the first feedback
+ ##############################
+
+
+```{r}
+# esclude the unwanted columns
+data_ready <- data3[,-c(1:3,5:8,11,22:24,26:31)]
+
+# compare tank and family, tank is significant
+model_blocking <- lm(data3$P_F ~ data3$Tank + data3$Family)
+anova(model_blocking)
+model_blocking <- lm(data3$P_F ~  data3$Family + data3$Tank)
+anova(model_blocking)
+
+# how anout sex
+model_blocking <- lm(data3$P_F ~  data3$Sex + data3$Tank)
+anova(model_blocking)
+# both sex and tank is significant, family is not significant and is excluded in the prior code
+
+anova(lm(data3$P_F ~ data3$Pfat + data3$Tank))
+anova(lm(data3$P_F ~ data3$Pfat + data3$Sex))
+```
+
+
+
+```{r}
+
+# try to conduct stepwise regression
+data_transformed <- na.omit(data_ready)
+model_null <- lm(P_F ~ 1, data=data_transformed)
+model_full <- lm(P_F ~ ., data = data_transformed)
+step(model_null, scope = list(upper = formula(model_full), lower = formula(model_null)), direction = 'forward')
+step(model_full, scope = list(upper = formula(model_full), lower = formula(model_null)), direction = 'backward')
+step(model_full, scope = list(upper = formula(model_full), lower = formula(model_null)), direction = 'both')
+
+#### FORWARD
+# Coefficients:
+# (Intercept)         Pfat          Fat  Fat_free_wt     Pprotein         Sexm  
+#    6.48586     -0.22609     22.37837     -7.92262      0.03346     -0.19282  
+
+
+#### BACKWARD
+# Coefficients:
+# (Intercept)       Wet_wt  Fat_free_wt     Ashed_wt      Protein       Pwater         Pfat         Pash  
+# -5.537e-16    2.498e-01   -2.212e+00    3.723e-01    1.660e+00   -7.440e-02   -1.180e+00   -1.105e-01    
+
+#### BOTH
+# Coefficients:
+# (Intercept)       Wet_wt       Dry_wt     Ashed_wt      Protein       Pwater         Pash     Pprotein  
+#    -3.5310       8.2526      12.9655     -35.9563     -57.7010      -0.2718       0.2532       0.3545 
+
+#########
+# why is tank not show up here????
+# why P_L not showing up????
+
+
+
+```
+ 
+
+since there is no significant value of outliers may I can use the original dataset
+```{r}
+anova(lm(P_F~Sex, data = data3))
+anova(lm(P_F~Wet_wt, data = data3))
+anova(lm(P_F~Dry_wt, data = data3))
+anova(lm(P_F~Ashed_wt, data = data3))
+anova(lm(P_F~Fat, data = data3))
+anova(lm(P_F~Protein, data = data3))
+anova(lm(P_F~Pfat, data = data3))
+anova(lm(P_F~Pprotein, data = data3))
+anova(lm(P_F~Energy_fat, data = data3))
+anova(lm(P_F~Energy_protein, data = data3))
+anova(lm(P_F~Total_energy, data = data3))
+# all are significant
+
+summary(lm(P_F~Sex, data = data3)) # Adjusted R-squared:  0.03802 
+summary(lm(P_F~Wet_wt, data = data3)) # Adjusted R-squared:  0.224 
+summary(lm(P_F~Dry_wt, data = data3)) # Adjusted R-squared:  0.2973
+summary(lm(P_F~Ashed_wt, data = data3)) # Adjusted R-squared:  0.04432 
+summary(lm(P_F~Protein + Fat, data = data3)) # Adjusted R-squared:  0.4895
+summary(lm(P_F~Pfat, data = data3)) #Adjusted R-squared:  0.7854 
+summary(lm(P_F~Pprotein, data = data3)) # Adjusted R-squared:  0.5719 
+summary(lm(P_F~Energy_fat, data = data3)) # Adjusted R-squared:  0.4464 
+summary(lm(P_F~Energy_protein, data = data3)) # Multiple R-squared:  0.2076
+summary(lm(P_F~Total_energy, data = data3)) # Adjusted R-squared:  0.3664 
+
+cor.test(data3$Wet_wt, data3$Dry_wt)
+
+data_ready <- data3[,-c(1:3,5:8,11,22:24,26:31)]
+
+# since both sex and tank is significant, we need to regress them out first
+# then scale the residuals for log regression 
+
+model.tank_sex <- lm(data_ready$P_F ~ data_ready$Sex + data_ready$Tank)
+anova(model.tank_sex)
+resid(model.tank_sex) -> data_ready$resid
+
+library(caret)
+data_stand <- preProcess(data_ready, method = c("center", "scale", "YeoJohnson","nzv"))
+data_transformed <- predict(data_stand, data_ready)
+rm.out<-function(x)(ifelse(x >3, NA,x ))
+
+dev.new()
+pairs(data_ready)
+
+model.5 <- lm(resid ~ poly(Pfat,2), data_ready)
+plot(data_ready$Pfat, data_ready$resid)
+lines(data_ready$Pfat, predict(model.5),col="red")
+summary(model.5)
+
+#fit_exp <- glm(data_ready$resid ~ Pfat, data = data_ready, family = gaussian(link=log))
+#plot(fit_exp)
+# regress out the factor is not going to work, with residuals and the map look to be much more noiser
+
+# how about look femanle and male fish seperately?
+library(dplyr)
+data_female <- filter(data_ready, Sex =="f")
+data_male <- filter(data_ready, Sex =="m")
+
+p <- ggplot(data_ready,aes(Pfat,P_F,colour = Sex)) + 
+  geom_point() +
+  ylab("Protein: fat ratio in the fish body") +
+  xlab("Percentage of fat in the fish body") +
+  ggtitle("Distribution of female and male fish")
+
+p
+
+
+fit_exp.f <- glm(P_F ~ Pfat, data = data_female, family = gaussian(link=log))
+plot(fit_exp.f)
+
+fit_exp.m <- glm(P_F ~ Pfat, data = data_male, family = gaussian(link=log))
+plot(fit_exp.m)
+
+model.5 <- lm(resid ~ poly(Pfat,2), data_ready)
+plot(data_ready$Pfat, data_ready$resid)
+
+
+library(gridExtra)
+library(ggplot2)
+library(GGally)
+# pairs plot to visualize data by sex (3 categories)
+
+sexplot<-ggpairs(data_ready[,-3], aes(colour=Sex, alpha=0.8), title ="Pairs plot for fish dataset by sex")+
+  theme_grey(base_size = 8)
+pdf("sexplot.pdf")
+sexplot
+dev.off()
+```
+
+# try to adjust for tank
+```{r}
+grand_mean <- mean(data_ready[["P_F"]])
+grand_mean #[1] 2.62429
+
+# extract mean for each tank and then correct it
+tank_level <- levels(data3$Tank)
+tank_mean <- NULL
+
+as.data.frame(aggregate(data_ready[,14], list(data_ready$Tank),mean)) -> tank_mean
+names(tank_mean) <- c("tankid", "tank_mean")
+tank_mean$grand_mean <- 2.62429
+tank_mean$diff <- tank_mean$tank_mean - tank_mean$grand_mean
+
+data_correction <- data_ready[,-15]
+
+
+# goal is to put diff of tank_mean into the correlation datafrmae
+data_correction <- merge(x=data_correction, y=tank_mean[,c(1,4)], by.x = "Tank", by.y = "tankid")
+data_correction$new_pf <- data_correction$P_F - data_correction$diff # new_pf is the one thay has been corrected
+
+# plot it after correction
+library(ggplot2)
+p <- ggplot(data_correction,aes(Pfat,new_pf,colour = Sex)) + geom_point()
+p
+# it is a distastet
+
+# it seems that p_fat = 16.1, p_diff = 3.03 is an outlier it is data point 90, need to removeit 
+data_correction <- data_correction[-90,]
+p <- ggplot(data_correction,aes(Pfat,P_F,colour = Sex)) + geom_point() + geom_text(aes(label=rownames(data_correction)),hjust=0, vjust=0)
+p
+# now I am able to detect the two outliers, are they truely outliers????
+
+# try differnt fit and compare them
+data_f <- data_ready[data_ready$Sex=="f",]
+data_m <- data_ready[data_ready$Sex=="m",]
+
+# fit log link to it
+fit_exp <- glm(P_F ~ Pfat, data = data_correction, family = gaussian(link=log))
+plot(fit_exp)
+fit_exp_f <- glm(P_F ~ Pfat, data = data_f, family = gaussian(link=log))
+plot(fit_exp_f)
+
+fit_exp_m <- glm(P_F ~ Pfat, data = data_m, family = gaussian(link=log))
+plot(fit_exp_m)
+
+# poly-nomial
+fit_poly <- lm(P_F~poly(Pfat,2), data_correction)
+plot(fit_poly)
+summary(fit_poly)
+
+fit_poly_f <- lm(P_F~poly(Pfat,2), data_correction[data_correction$Sex == "f", ])
+plot(fit_poly_f)
+summary(fit_poly_f)
+
+fit_poly_m <- lm(P_F~poly(Pfat,2), data_correction[data_correction$Sex == "m", ])
+plot(fit_poly_m)
+summary(fit_poly_m)
+
+# inverse.gamma
+fit_gamma <- glm(P_F ~ Pfat, data = data_correction, family = Gamma(link = "identity"))
+plot(fit_gamma)
+
+fit_inverse <- glm(P_F ~ Pfat, data = data_correction, family = Gamma(link = "inverse"))
+plot(fit_inverse)
+
+# poission
+fit_log_poi <- glm(P_F ~ Pfat, data = data_correction, family = poisson(link = log))
+plot(fit_log_poi)
+
+fit_log_poi_f <- glm(P_F ~ Pfat, data = data_correction[data_correction$Sex == "f",], family = poisson(link = log))
+plot(fit_log_poi_f)
+
+fit_log_poi_m <- glm(P_F ~ Pfat, data = data_correction[data_correction$Sex == "m",], family = poisson(link = log))
+plot(fit_log_poi_m)
+
+AIC(fit_exp) #[1] 77.66344  this seem to be a good model
+AIC(fit_exp_f) # 91.33888
+AIC(fit_exp_m) # -8.987106
+AIC(fit_log_poi) #[1] Inf
+AIC(fit_inverse) #[1] -54.14454 
+AIC(fit_poly) # [1] 97.01369
+AIC(fit_gamma) #[1] 140.0517           
+```
+
+
+```{r}
+# fit_exp is the model that we are going to use
+fit_exp <- glm(P_F ~ Pfat, data = data_correction, family = gaussian(link=log))
+data_correction$predict_fitexp <- predict(fit_exp, type = "response")
+exp_plot <-  ggplot(data = data_correction,aes(x=P_F, y=predict_fitexp)) + geom_point() +
+  geom_smooth() +
+  xlab("Observed protein: fat ratio in the fish body") +
+  ylab("Predicted protein: fat ratio in the fish body") +
+  ggtitle("Predicted v.s observed")
+exp_plot
+
+```
+
+
+## it is possible to predict the P_F ratio of a fish based on their diet
+```{r}
+library(corrplot)
+corr <- cor(data_correction[,3:14])
+corrplot(corr, method="circle")
+
+pairs(data_correction[,3:14])
+## that would be a logisrtic regression later
+```
+
+
+## simulation test
+## Simulation
+Please simulate a set of 1000 new observations based on your best model.
+How do these simulated observations compare to the real observations?
+
+```{r}
+# objective: new y based on the model fit, we need intercept and 5 parameters and also error 
+# need a dataframe of x, and also random error ()
+
+summary(data_correction) # mean, median and variance, min and max, mean and sd can give a normal distributioin (pnorm)
+
+Pfat <- seq(min(data_correction$Pfat), max(data_correction$Pfat),length.out = 1000)
+grid <- expand.grid(Pfat)
+names(grid) <- c("Pfat")
+
+summary(fit_exp)
+# (Dispersion parameter for gaussian family taken to be 0.1130409)
+# it is the same as mean square error
+
+set.seed(777)
+grid$error <- rnorm(n=1000, mean=0, sd=0.1130409)
+head(grid)
+
+library(tidyverse)
+grid_sim <- grid %>%
+  mutate(y1 = 2.514625 -0.065279*Pfat + error) %>%
+  mutate(y2 = exp(y1))
+
+grid_sim$pred <- predict(fit_exp, newdata = grid_sim) # based on the new dataframe of the dataframe, calculate the response without the error
+
+plot(x=grid_sim$y1, y=grid_sim$pred, xlab = "simulated protein: fat ratio", ylab = "predicted protein: fat ratio")
+cor.test(x = grid_sim$y1, y=grid_sim$pred, method = "pearson")
+abline(a=0,b=1)
+# this looks great
+```
+
+
+```{r}
+# see if we are able to find PL ratio based on the diet the fish take
+data6 <- data3[,c(4:12,25)]
+data6 <- data3[,c(6:9,12,19,25)]
+pairs(data6)
+
+# based on the paired plot, it seems that overall, lipid is a very good indicator, and the inclusion of proteion would even mess up the correlation
+library(corrplot)
+corr <- cor(data6)
+corrplot.mixed(corr)
+corrplot(corr, method="circle")
+
+```
+
+
